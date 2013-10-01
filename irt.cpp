@@ -52,7 +52,7 @@ int main(void){
     return -1;
   }
   if (MLX90614_read(fd, temp) < 0) {
-    perror("Read failure.");
+    perror("Read failure");
     close(fd);
     return -1;
   }
