@@ -10,11 +10,73 @@
 
 using namespace std;
  
-int address = 0x5a;
+#define MLXADD = 0x5a 
+#define TREG = 0x07
+#define TMP007_VOBJ       0x00
+#define TMP007_TDIE       0x01
+#define TMP007_CONFIG     0x02
+#define TMP007_TOBJ       0x03
+#define TMP007_STATUS     0x04
+#define TMP007_STATMASK   0x05
+
+#define TMP007_CFG_RESET    0x8000
+#define TMP007_CFG_MODEON   0x1000
+#define TMP007_CFG_1SAMPLE  0x0000
+#define TMP007_CFG_2SAMPLE  0x0200
+#define TMP007_CFG_4SAMPLE  0x0400
+#define TMP007_CFG_8SAMPLE  0x0600
+#define TMP007_CFG_16SAMPLE 0x0800
+#define TMP007_CFG_ALERTEN  0x0100
+#define TMP007_CFG_ALERTF   0x0080
+#define TMP007_CFG_TRANSC   0x0040
+
+#define TMP007_STAT_ALERTEN 0x8000
+#define TMP007_STAT_CRTEN   0x4000
+
+#define TMP007_I2CADDR 0x40
+#define TMP007_DEVID 0x1F
+
 const char *filename = "/dev/i2c-1";
 double tempfactor = 0.02;
 
 int MLX90614_read(int smbusfd, double temp) {
+	union i2c_smbus_data msg;
+	struct i2c_smbus_ioctl_data sdat = {
+		sdat.read_write = I2C_SMBUS_READ,
+		sdat.command = TREG,  // read register 7, ir
+		sdat.size = I2C_SMBUS_WORD_DATA,
+		sdat.data = &msg
+	};
+	int res;
+	if ((res = ioctl(smbusfd, I2C_SMBUS, &sdat)) < 0) {
+	  return res;  // maybe not the best value
+	}
+	temp = tempfactor * (double)msg.word;
+	
+	return 0;
+}
+
+int TMP007_read(int smbusfd, double temp) {
+	union i2c_smbus_data msg;
+	struct i2c_smbus_ioctl_data sdat = {
+		sdat.read_write = I2C_SMBUS_READ,
+		sdat.command = TMP007_TOBJ,  // read register 3, ir
+		sdat.size = I2C_SMBUS_WORD_DATA,
+		sdat.data = &msg
+	};
+	int res;
+	if ((res = ioctl(smbusfd, I2C_SMBUS, &sdat)) < 0) {
+	  return res;  // maybe not the best value
+	}
+	temp = tempfactor * (double)msg.word;
+	
+	return 0;
+}
+
+int TMP007_write(int smbusfd) {
+
+  write16(TMP007_CONFIG, TMP007_CFG_MODEON | TMP007_CFG_ALERTEN |  TMP007_CFG_TRANSC | TMP007_CFG_16SAMPLE);
+  write16(TMP007_STATMASK, TMP007_STAT_ALERTEN |TMP007_STAT_CRTEN);
 	union i2c_smbus_data msg;
 	struct i2c_smbus_ioctl_data sdat = {
 		sdat.read_write = I2C_SMBUS_READ,
