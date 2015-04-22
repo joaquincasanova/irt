@@ -10,8 +10,8 @@
 
 using namespace std;
  
-#define MLXADD = 0x5a 
-#define TREG = 0x07
+#define MLX_I2CADDR = 0x5a 
+#define MLX_TREG = 0x07
 #define TMP007_VOBJ       0x00
 #define TMP007_TDIE       0x01
 #define TMP007_CONFIG     0x02
@@ -37,13 +37,14 @@ using namespace std;
 #define TMP007_DEVID 0x1F
 
 const char *filename = "/dev/i2c-1";
-double tempfactor = 0.02;
+double tempfactorMLX = 0.02;
+double tempfactorTMP = 0.03125;
 
 int MLX90614_read(int smbusfd, double temp) {
 	union i2c_smbus_data msg;
 	struct i2c_smbus_ioctl_data sdat = {
 		sdat.read_write = I2C_SMBUS_READ,
-		sdat.command = TREG,  // read register 7, ir
+		sdat.command = MLX_TREG,  // read register 7, ir
 		sdat.size = I2C_SMBUS_WORD_DATA,
 		sdat.data = &msg
 	};
@@ -51,7 +52,7 @@ int MLX90614_read(int smbusfd, double temp) {
 	if ((res = ioctl(smbusfd, I2C_SMBUS, &sdat)) < 0) {
 	  return res;  // maybe not the best value
 	}
-	temp = tempfactor * (double)msg.word;
+	temp = tempfactorMLX * (double)msg.word;
 	
 	return 0;
 }
@@ -68,19 +69,18 @@ int TMP007_read(int smbusfd, double temp) {
 	if ((res = ioctl(smbusfd, I2C_SMBUS, &sdat)) < 0) {
 	  return res;  // maybe not the best value
 	}
-	temp = tempfactor * (double)msg.word;
+	temp = tempfactorTMP * double(msg.word>>2);
 	
 	return 0;
 }
 
 int TMP007_write(int smbusfd) {
 
-  write16(TMP007_CONFIG, TMP007_CFG_MODEON | TMP007_CFG_ALERTEN |  TMP007_CFG_TRANSC | TMP007_CFG_16SAMPLE);
-  write16(TMP007_STATMASK, TMP007_STAT_ALERTEN |TMP007_STAT_CRTEN);
 	union i2c_smbus_data msg;
+	msg.word = TMP007_CFG_MODEON | TMP007_CFG_ALERTEN |  TMP007_CFG_TRANSC | TMP007_CFG_16SAMPLE;
 	struct i2c_smbus_ioctl_data sdat = {
-		sdat.read_write = I2C_SMBUS_READ,
-		sdat.command = 7,  // read register 7, ir
+		sdat.read_write = I2C_SMBUS_WRITE,
+		sdat.command = TMP007_CONFIG,  // Write to config register
 		sdat.size = I2C_SMBUS_WORD_DATA,
 		sdat.data = &msg
 	};
@@ -88,7 +88,18 @@ int TMP007_write(int smbusfd) {
 	if ((res = ioctl(smbusfd, I2C_SMBUS, &sdat)) < 0) {
 	  return res;  // maybe not the best value
 	}
-	temp = tempfactor * (double)msg.word;
+	
+	msg.word = TMP007_STAT_ALERTEN |TMP007_STAT_CRTEN;
+	struct i2c_smbus_ioctl_data sdat = {
+		sdat.read_write = I2C_SMBUS_WRITE,
+		sdat.command = TMP007_STATMASK,  // Status register
+		sdat.size = I2C_SMBUS_WORD_DATA,
+		sdat.data = &msg
+	};
+	int res;
+	if ((res = ioctl(smbusfd, I2C_SMBUS, &sdat)) < 0) {
+	  return res;  // maybe not the best value
+	}	
 	
 	return 0;
 }
@@ -103,7 +114,7 @@ int main(void){
     return -1;
   }
         
-  if (ioctl(fd, I2C_SLAVE, address) < 0) {        // Set the port options and set the address of the device we wish to speak to
+  if (ioctl(fd, I2C_SLAVE, MLX_I2CADDR) < 0) {        // Set the port options and set the address of the device we wish to speak to
     perror("Unable to get bus access to talk to slave");
     close(fd);
     return -1;
@@ -120,6 +131,24 @@ int main(void){
   }
 
   cout << temp << " K" << std::endl;
+  
+  if (ioctl(fd, I2C_SLAVE, TMP_I2CADDR) < 0) {        // Set the port options and set the address of the device we wish to speak to
+    perror("Unable to get bus access to talk to slave");
+    close(fd);
+    return -1;
+  }
+  if (ioctl(fd, I2C_PEC, 1) < 0) {
+    perror("PEC");
+    close(fd);
+    return -1;
+  }
+  if (TMP007_read(fd, temp) < 0) {
+    perror("Read failure");
+    close(fd);
+    return -1;
+  }
+
+  cout << temp << " C" << std::endl;
   close(fd);
   return 0;
 
