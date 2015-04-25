@@ -41,6 +41,7 @@ int main(void){
 
   int fd;
   double temp;
+  short unsigned int msg;
 
   cout << "Opening I2C" << std::endl;
   if ((fd = open(filename, O_RDWR)) < 0) {        // Open port for reading and writing
@@ -55,15 +56,31 @@ int main(void){
     return -1;
   }
   
-  cout << "TMP WRITE I2C" << std::endl;       
-  i2c_smbus_write_word_data(fd, TMP007_CONFIG, TMP007_CFG_MODEON | TMP007_CFG_ALERTEN |  TMP007_CFG_TRANSC | TMP007_CFG_16SAMPLE);
+  cout << "TMP WRITE I2C" << std::endl;
 
-  cout << "TMP WRITE I2C" << std::endl;       
-  i2c_smbus_write_word_data(fd, TMP007_STATMASK, TMP007_STAT_ALERTEN |TMP007_STAT_CRTEN);
+  msg = TMP007_CFG_MODEON | TMP007_CFG_ALERTEN |  TMP007_CFG_TRANSC | TMP007_CFG_16SAMPLE;
+  msg = ((msg<<8) & 0xFF00)|((msg>>8) & 0x00FF);
+  i2c_smbus_write_word_data(fd, TMP007_CONFIG, msg);
+
+  cout << "TMP WRITE I2C" << std::endl;
+  msg = TMP007_STAT_ALERTEN |TMP007_STAT_CRTEN;
+  msg = ((msg<<8) & 0xFF00)|((msg>>8) & 0x00FF);       
+  i2c_smbus_write_word_data(fd, TMP007_STATMASK, msg);
 
   cout << "TMP READ I2C" << std::endl;       
-  temp=tempfactorTMP*double(i2c_smbus_read_word_data(fd, TMP007_TOBJ)>>2);
+  msg=i2c_smbus_read_word_data(fd, TMP007_TOBJ);
+  msg=((msg<<8) & 0xFF00)|((msg>>8) & 0x00FF); 
+  temp=tempfactorTMP*double(msg>>2);
   cout << temp << " C" << std::endl;
+
+
+  cout << "TMP READ I2C" << std::endl;       
+msg=i2c_smbus_read_word_data(fd, TMP007_TDIE);
+ msg=((msg<<8) & 0xFF00)|((msg>>8) & 0x00FF);
+temp=tempfactorTMP*double(msg>>2);
+  cout << temp << " C" << std::endl;
+
+
   close(fd);
   
   return 0;

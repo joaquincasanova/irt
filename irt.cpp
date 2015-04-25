@@ -137,7 +137,7 @@ int main(void){
   }
 
   cout << temp << " K" << std::endl;
-
+  
   cout << "TMP I2C" << std::endl;       
   if (ioctl(fd, I2C_SLAVE, TMP007_I2CADDR) < 0) {        // Set the port options and set the address of the device we wish to speak to
     perror("Unable to get bus access to talk to slave");
