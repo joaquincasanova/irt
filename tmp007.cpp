@@ -37,6 +37,68 @@ using namespace std;
 const char *filename = "/dev/i2c-1";
 double tempfactorTMP = 0.03125;
 
+short int reverse_byte_order(short int msg){
+  return ((msg<<8) & 0xFF00)|((msg>>8) & 0x00FF);
+}
+
+class TMP{
+  int fd;
+  double temp;
+  short unsigned int msg;
+public:
+  TMP();
+  ~TMP();
+  double objTemp();
+  double dieTemp();
+};
+
+TMP::TMP{
+  cout << "Opening I2C" << std::endl;
+  if ((fd = open(filename, O_RDWR)) < 0) {        // Open port for reading and writing
+    perror("Failed to open i2c port");
+    return -1;
+  }
+
+  cout << "TMP I2C" << std::endl;       
+  if (ioctl(fd, I2C_SLAVE, TMP007_I2CADDR) < 0) {        // Set the port options and set the address of the device we wish to speak to
+    perror("Unable to get bus access to talk to slave");
+    close(fd);
+    return -1;
+  }
+  
+  cout << "TMP WRITE I2C CONFIG" << std::endl;
+  msg = TMP007_CFG_MODEON | TMP007_CFG_ALERTEN |  TMP007_CFG_TRANSC | TMP007_CFG_16SAMPLE;
+  msg = reverse_byte_order(msg);
+  i2c_smbus_write_word_data(fd, TMP007_CONFIG, msg);
+
+  cout << "TMP WRITE I2C STATUS" << std::endl;
+  msg = TMP007_STAT_ALERTEN |TMP007_STAT_CRTEN;
+  msg = reverse_byte_order(msg);     
+  i2c_smbus_write_word_data(fd, TMP007_STATMASK, msg);
+}
+
+double TMP::objTemp(void){
+  cout << "TMP READ I2C OBJ TEMP" << std::endl;       
+  msg = i2c_smbus_read_word_data(fd, TMP007_TOBJ);
+  msg = reverse_byte_order(msg); 
+  temp = tempfactorTMP*double(msg>>2);
+  cout << temp << " C" << std::endl;
+  return temp;
+}
+
+double TMP::dieTemp(void){
+  cout << "TMP READ I2C OBJ TEMP" << std::endl;       
+  msg = i2c_smbus_read_word_data(fd, TMP007_TOBJ);
+  msg = reverse_byte_order(msg); 
+  temp = tempfactorTMP*double(msg>>2);
+  cout << temp << " C" << std::endl;
+  return temp;
+}
+
+TMP::~TMP{
+  return close(fd);
+}
+
 int main(void){
 
   int fd;
@@ -56,27 +118,26 @@ int main(void){
     return -1;
   }
   
-  cout << "TMP WRITE I2C" << std::endl;
-
+  cout << "TMP WRITE I2C CONFIG" << std::endl;
   msg = TMP007_CFG_MODEON | TMP007_CFG_ALERTEN |  TMP007_CFG_TRANSC | TMP007_CFG_16SAMPLE;
-  msg = ((msg<<8) & 0xFF00)|((msg>>8) & 0x00FF);
+  msg = reverse_byte_order(msg);
   i2c_smbus_write_word_data(fd, TMP007_CONFIG, msg);
 
-  cout << "TMP WRITE I2C" << std::endl;
+  cout << "TMP WRITE I2C STATUS" << std::endl;
   msg = TMP007_STAT_ALERTEN |TMP007_STAT_CRTEN;
-  msg = ((msg<<8) & 0xFF00)|((msg>>8) & 0x00FF);       
+  msg = reverse_byte_order(msg);     
   i2c_smbus_write_word_data(fd, TMP007_STATMASK, msg);
 
-  cout << "TMP READ I2C" << std::endl;       
-  msg=i2c_smbus_read_word_data(fd, TMP007_TOBJ);
-  msg=((msg<<8) & 0xFF00)|((msg>>8) & 0x00FF); 
-  temp=tempfactorTMP*double(msg>>2);
+  cout << "TMP READ I2C OBJ TEMP" << std::endl;       
+  msg = i2c_smbus_read_word_data(fd, TMP007_TOBJ);
+  msg = reverse_byte_order(msg); 
+  temp = tempfactorTMP*double(msg>>2);
   cout << temp << " C" << std::endl;
 
 
-  cout << "TMP READ I2C" << std::endl;       
+  cout << "TMP READ I2C DIE TEMP" << std::endl;       
   msg=i2c_smbus_read_word_data(fd, TMP007_TDIE);
-  msg=((msg<<8) & 0xFF00)|((msg>>8) & 0x00FF);
+  msg=reverse_byte_order(msg);  
   temp=tempfactorTMP*double(msg>>2);
   cout << temp << " C" << std::endl;
 
