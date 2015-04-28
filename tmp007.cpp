@@ -31,7 +31,9 @@ using namespace std;
 #define TMP007_STAT_ALERTEN 0x8000
 #define TMP007_STAT_CRTEN   0x4000
 
-#define TMP007_I2CADDR 0x40
+#define TMP007_I2CADDR 0x41
+//ADR0 to VDD
+//ADR1 to GND
 #define TMP007_DEVID 0x1F
 
 const char *filename = "/dev/i2c-1";
